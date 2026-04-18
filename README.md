@@ -62,6 +62,7 @@ document-rag-prototype/
 ├── rag_prototype.ipynb
 ├── requirements.txt
 └── README.md
+```
 
 ## What changed during development
 
@@ -243,3 +244,4 @@ The next steps are already clear:
 3. Improve slide-heavy PDF handling
 4. Revisit stronger embedding and reranking setups later
 5. Add vector database infrastructure only after retrieval quality is stable enough to justify it
+
