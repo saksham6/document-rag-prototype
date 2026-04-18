@@ -63,7 +63,6 @@ document-rag-prototype/
 ├── requirements.txt
 └── README.md
 
-```
 ## What changed during development
 
 The first versions were much weaker than the current one. The project went through several rounds of tuning to isolate what was actually hurting performance.
