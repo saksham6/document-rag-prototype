@@ -1,16 +1,13 @@
 # document-rag-prototype
 Retrieval-first RAG prototype for TXT and PDF documents
 
+## Overview
 
-# document-rag-prototype
+This project is a retrieval-first RAG prototype for TXT and PDF documents. It is built around a practical question: how well does a modular retrieval pipeline hold up once the input moves beyond clean examples and into real files with uneven structure. The current implementation focuses on the full retrieval path, including document loading, PDF text extraction, chunking, embedding-based search, reranking, and grounded answer generation.
 
-A retrieval-first RAG prototype for TXT and PDF documents, built to understand what actually breaks when moving from clean examples to real files. The project is modular, notebook-driven, and focused on practical document handling: extraction quality, chunking, embedding-based retrieval, reranking, and grounded answer generation.
+## Motivation
 
-## Why this project exists
-
-Most small RAG examples look fine because the documents are clean and the questions are easy. Real PDFs are not like that. Some are structured reports, some are slide decks, and some mix headings, captions, tables, repeated headers, short fragments, and broken reading order.
-
-This project started from that problem: not just to retrieve text from documents, but to see how retrieval quality changes when the source itself is noisy.
+Document-based QA becomes much harder when the source material is noisy. Reports, slide decks, and mixed-format PDFs often contain repeated headers, fragmented lines, captions, section markers, and broken reading order. In those settings, weak extraction and chunking decisions can hurt retrieval long before answer generation begins. This project was built to work through those practical issues step by step and to understand where the pipeline improves, where it still fails, and which parts need further tuning.
 
 ## Current direction
 
