@@ -1,0 +1,27 @@
+
+services:
+  api:
+    build: .
+    container_name: rag-api
+    init: true
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://raguser:ragpass@postgres-db:5432/ragdb
+    depends_on:
+      - postgres-db
+
+  postgres-db:
+    image: postgres:16
+    container_name: rag-postgres
+    environment:
+      POSTGRES_DB: ragdb
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ragpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
