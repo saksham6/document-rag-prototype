@@ -2,6 +2,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import os
 import psycopg
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+from document_rag_prototype.db.session import get_db_session
 
 
 app = FastAPI(
@@ -44,26 +48,41 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+# @app.get("/db-check")
+# def db_check() -> dict:
+#     database_url = os.getenv("DATABASE_URL")
+
+#     if not database_url:
+#         raise HTTPException(status_code=500, detail="DATABASE_URL is not set.")
+
+#     try:
+#         with psycopg.connect(database_url) as conn:
+#             with conn.cursor() as cur:
+#                 cur.execute("SELECT 1;")
+#                 result = cur.fetchone()
+
+#         return {
+#             "status": "ok",
+#             "database_connected": True,
+#             "result": result[0],
+#         }
+#     except Exception as exc:
+#         raise HTTPException(status_code=500, detail=f"Database connection failed: {exc}") from exc
+
+
 @app.get("/db-check")
-def db_check() -> dict:
-    database_url = os.getenv("DATABASE_URL")
+async def db_check(db: AsyncSession = Depends(get_db_session)):
+    result = await db.execute(text("SELECT 1"))
+    value = result.scalar_one()
 
-    if not database_url:
-        raise HTTPException(status_code=500, detail="DATABASE_URL is not set.")
+    return {
+        "status": "ok",
+        "database": "connected",
+        "result": value,
+        "driver": "sqlalchemy+asyncpg",
+    }
 
-    try:
-        with psycopg.connect(database_url) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
-                result = cur.fetchone()
 
-        return {
-            "status": "ok",
-            "database_connected": True,
-            "result": result[0],
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {exc}") from exc
 
 
 @app.post("/ask", response_model=AskResponse)

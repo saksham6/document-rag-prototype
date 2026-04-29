@@ -7,6 +7,8 @@ COPY README.md ./
 COPY src ./src
 COPY app ./app
 COPY data ./data
+COPY alembic.ini ./
+COPY alembic ./alembic
 
 RUN pip install --no-cache-dir uv \
     && uv pip install --system -e .
