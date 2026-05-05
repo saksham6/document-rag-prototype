@@ -1,10 +1,18 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
-import os
-import psycopg
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
+
+from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
+from document_rag_prototype.db.schemas import (
+    ChunkCreate,
+    ChunkRead,
+    DocumentCreate,
+    DocumentRead,
+    KnowledgeBaseCreate,
+    KnowledgeBaseRead,
+)
 from document_rag_prototype.db.session import get_db_session
 
 
@@ -48,28 +56,6 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-# @app.get("/db-check")
-# def db_check() -> dict:
-#     database_url = os.getenv("DATABASE_URL")
-
-#     if not database_url:
-#         raise HTTPException(status_code=500, detail="DATABASE_URL is not set.")
-
-#     try:
-#         with psycopg.connect(database_url) as conn:
-#             with conn.cursor() as cur:
-#                 cur.execute("SELECT 1;")
-#                 result = cur.fetchone()
-
-#         return {
-#             "status": "ok",
-#             "database_connected": True,
-#             "result": result[0],
-#         }
-#     except Exception as exc:
-#         raise HTTPException(status_code=500, detail=f"Database connection failed: {exc}") from exc
-
-
 @app.get("/db-check")
 async def db_check(db: AsyncSession = Depends(get_db_session)):
     result = await db.execute(text("SELECT 1"))
@@ -83,6 +69,107 @@ async def db_check(db: AsyncSession = Depends(get_db_session)):
     }
 
 
+@app.post("/knowledge-bases", response_model=KnowledgeBaseRead)
+async def create_knowledge_base(
+    payload: KnowledgeBaseCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    knowledge_base = KnowledgeBase(
+        name=payload.name,
+        description=payload.description,
+    )
+
+    db.add(knowledge_base)
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A knowledge base with this name already exists.",
+        ) from exc
+
+    await db.refresh(knowledge_base)
+    return knowledge_base
+
+
+@app.get("/knowledge-bases", response_model=list[KnowledgeBaseRead])
+async def list_knowledge_bases(
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(select(KnowledgeBase).order_by(KnowledgeBase.id))
+    return result.scalars().all()
+
+
+@app.post("/documents", response_model=DocumentRead)
+async def create_document(
+    payload: DocumentCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    knowledge_base = await db.get(KnowledgeBase, payload.knowledge_base_id)
+
+    if knowledge_base is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Knowledge base not found.",
+        )
+
+    document = Document(
+        knowledge_base_id=payload.knowledge_base_id,
+        filename=payload.filename,
+        source_type=payload.source_type,
+        status=payload.status,
+    )
+
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    return document
+
+
+@app.get("/documents", response_model=list[DocumentRead])
+async def list_documents(
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(select(Document).order_by(Document.id))
+    return result.scalars().all()
+
+
+@app.post("/chunks", response_model=ChunkRead)
+async def create_chunk(
+    payload: ChunkCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    document = await db.get(Document, payload.document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found.",
+        )
+
+    chunk = Chunk(
+        document_id=payload.document_id,
+        chunk_index=payload.chunk_index,
+        content=payload.content,
+        page_number=payload.page_number,
+    )
+
+    db.add(chunk)
+    await db.commit()
+    await db.refresh(chunk)
+
+    return chunk
+
+
+@app.get("/chunks", response_model=list[ChunkRead])
+async def list_chunks(
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(select(Chunk).order_by(Chunk.id))
+    return result.scalars().all()
 
 
 @app.post("/ask", response_model=AskResponse)
