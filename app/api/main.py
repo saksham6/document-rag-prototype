@@ -1,9 +1,17 @@
-from fastapi import Depends, FastAPI, HTTPException
+from pathlib import Path
+import shutil
+
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from document_rag_prototype.config import UPLOAD_FOLDER
+from document_rag_prototype.db.ingestion import (
+    extract_text_from_file,
+    split_text_into_chunks,
+)
 from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
 from document_rag_prototype.db.schemas import (
     ChunkCreate,
@@ -102,6 +110,59 @@ async def list_knowledge_bases(
     return result.scalars().all()
 
 
+@app.post(
+    "/knowledge-bases/{knowledge_base_id}/documents/upload",
+    response_model=DocumentRead,
+)
+async def upload_document(
+    knowledge_base_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db_session),
+):
+    knowledge_base = await db.get(KnowledgeBase, knowledge_base_id)
+
+    if knowledge_base is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Knowledge base not found.",
+        )
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file must have a filename.",
+        )
+
+    allowed_extensions = {".pdf", ".txt"}
+    file_extension = Path(file.filename).suffix.lower()
+
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF and TXT files are supported for now.",
+        )
+
+    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    saved_path = UPLOAD_FOLDER / file.filename
+
+    with saved_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    document = Document(
+        knowledge_base_id=knowledge_base_id,
+        filename=file.filename,
+        source_type="file",
+        status="uploaded",
+    )
+
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    return document
+
+
 @app.post("/documents", response_model=DocumentRead)
 async def create_document(
     payload: DocumentCreate,
@@ -135,6 +196,77 @@ async def list_documents(
 ):
     result = await db.execute(select(Document).order_by(Document.id))
     return result.scalars().all()
+
+
+@app.post("/documents/{document_id}/ingest")
+async def ingest_document(
+    document_id: int,
+    db: AsyncSession = Depends(get_db_session),
+):
+    document = await db.get(Document, document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found.",
+        )
+
+    file_path = UPLOAD_FOLDER / document.filename
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Uploaded file not found: {document.filename}",
+        )
+
+    try:
+        pages = extract_text_from_file(file_path)
+        chunk_payloads = split_text_into_chunks(pages)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document ingestion failed: {exc}",
+        ) from exc
+
+    if not chunk_payloads:
+        raise HTTPException(
+            status_code=400,
+            detail="No extractable text found in the document.",
+        )
+
+    await db.execute(delete(Chunk).where(Chunk.document_id == document_id))
+
+    chunks = [
+        Chunk(
+            document_id=document_id,
+            chunk_index=item["chunk_index"],
+            content=item["content"],
+            page_number=item["page_number"],
+        )
+        for item in chunk_payloads
+    ]
+
+    db.add_all(chunks)
+
+    await db.execute(
+        update(Document)
+        .where(Document.id == document_id)
+        .values(status="ingested")
+    )
+
+    await db.commit()
+
+    return {
+        "document_id": document_id,
+        "filename": document.filename,
+        "status": document.status,
+        "chunks_created": len(chunks),
+    }
 
 
 @app.post("/chunks", response_model=ChunkRead)
