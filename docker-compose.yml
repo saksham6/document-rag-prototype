@@ -7,6 +7,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://raguser:ragpass@postgres-db:5432/ragdb
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       - postgres-db
     volumes:
