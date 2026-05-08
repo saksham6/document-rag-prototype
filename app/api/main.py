@@ -23,6 +23,8 @@ from document_rag_prototype.db.schemas import (
 )
 from document_rag_prototype.db.session import get_db_session
 
+from document_rag_prototype.db.openai_embeddings import embed_texts
+
 
 app = FastAPI(
     title="Document RAG Prototype API",
@@ -267,6 +269,53 @@ async def ingest_document(
         "status": document.status,
         "chunks_created": len(chunks),
     }
+
+
+
+@app.post("/documents/{document_id}/embed")
+async def embed_document_chunks(
+    document_id: int,
+    db: AsyncSession = Depends(get_db_session),
+):
+    document = await db.get(Document, document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found.",
+        )
+
+    result = await db.execute(
+        select(Chunk)
+        .where(Chunk.document_id == document_id)
+        .order_by(Chunk.chunk_index)
+    )
+
+    chunks = result.scalars().all()
+
+    if not chunks:
+        raise HTTPException(
+            status_code=400,
+            detail="No chunks found for this document. Ingest the document first.",
+        )
+
+    texts = [chunk.content for chunk in chunks]
+    embeddings = embed_texts(texts)
+
+    for chunk, embedding in zip(chunks, embeddings):
+        chunk.embedding = embedding
+
+    await db.commit()
+
+    return {
+        "document_id": document_id,
+        "filename": document.filename,
+        "chunks_embedded": len(chunks),
+        "embedding_dimension": len(embeddings[0]) if embeddings else 0,
+        "embedding_model": "text-embedding-3-small",
+    }
+
+
 
 
 @app.post("/chunks", response_model=ChunkRead)
