@@ -52,3 +52,20 @@ class ChunkRead(BaseModel):
     content: str
     page_number: Optional[int]
     created_at: datetime
+
+
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    knowledge_base_id: Optional[int] = None
+    document_id: Optional[int] = None
+
+
+class SearchResult(BaseModel):
+    chunk_id: int
+    document_id: int
+    filename: str
+    chunk_index: int
+    page_number: Optional[int]
+    content: str
+    distance: float
