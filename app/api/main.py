@@ -1,30 +1,37 @@
 from pathlib import Path
 import shutil
-
+from fastapi.staticfiles import StaticFiles
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from document_rag_prototype.config import UPLOAD_FOLDER
-from document_rag_prototype.db.ingestion import (
+from document_rag_prototype.core.config import UPLOAD_FOLDER
+from document_rag_prototype.services.ingestion_service import (
     extract_text_from_file,
     split_text_into_chunks,
 )
 from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
-from document_rag_prototype.db.openai_embeddings import embed_texts
-from document_rag_prototype.db.schemas import (
+
+from document_rag_prototype.api.schemas.models import (
     ChunkCreate,
     ChunkRead,
     DocumentCreate,
     DocumentRead,
     KnowledgeBaseCreate,
     KnowledgeBaseRead,
+    SearchAnswerResponse,
+    SearchAnswerSource,
     SearchRequest,
     SearchResult,
 )
 from document_rag_prototype.db.session import get_db_session
+from document_rag_prototype.services.embedding_service import embed_texts
+
+from document_rag_prototype.services.generation_service import generate_answer
+from document_rag_prototype.services.retrieval_service import retrieve_chunks
+
 
 
 
@@ -32,6 +39,8 @@ app = FastAPI(
     title="Document RAG Prototype API",
     version="0.1.0",
 )
+
+app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
 
 class AskRequest(BaseModel):
@@ -355,7 +364,26 @@ async def list_chunks(
     return result.scalars().all()
 
 
-@app.post("/search", response_model=list[SearchResult])
+
+
+class SearchAnswerSource(BaseModel):
+    chunk_id: int
+    document_id: int
+    filename: str
+    chunk_index: int
+    page_number: int | None = None
+    distance: float
+
+
+class SearchAnswerResponse(BaseModel):
+    query: str
+    answer: str
+    sources: list[SearchAnswerSource]
+
+
+
+
+@app.post("/search", response_model=SearchAnswerResponse)
 async def semantic_search(
     payload: SearchRequest,
     db: AsyncSession = Depends(get_db_session),
@@ -368,57 +396,116 @@ async def semantic_search(
             detail="Search query cannot be empty.",
         )
 
-    top_k = max(1, min(payload.top_k, 20))
-    query_embedding = embed_texts([query])[0]
-    query_embedding_str = "[" + ",".join(str(value) for value in query_embedding) + "]"
-
-    sql = """
-        SELECT
-            chunks.id AS chunk_id,
-            chunks.document_id AS document_id,
-            documents.filename AS filename,
-            chunks.chunk_index AS chunk_index,
-            chunks.page_number AS page_number,
-            chunks.content AS content,
-            chunks.embedding <=> CAST(:query_embedding AS vector) AS distance
-        FROM chunks
-        JOIN documents ON documents.id = chunks.document_id
-        WHERE chunks.embedding IS NOT NULL
-    """
-
-    params = {
-    "query_embedding": query_embedding_str,
-    "top_k": top_k,
-}
-
-    if payload.knowledge_base_id is not None:
-        sql += " AND documents.knowledge_base_id = :knowledge_base_id"
-        params["knowledge_base_id"] = payload.knowledge_base_id
-
-    if payload.document_id is not None:
-        sql += " AND chunks.document_id = :document_id"
-        params["document_id"] = payload.document_id
-
-    sql += """
-        ORDER BY distance ASC
-        LIMIT :top_k
-    """
-
-    result = await db.execute(text(sql), params)
-    rows = result.mappings().all()
-
-    return [
-        SearchResult(
-            chunk_id=row["chunk_id"],
-            document_id=row["document_id"],
-            filename=row["filename"],
-            chunk_index=row["chunk_index"],
-            page_number=row["page_number"],
-            content=row["content"],
-            distance=float(row["distance"]),
+    try:
+        chunks = await retrieve_chunks(
+            query=query,
+            db=db,
+            knowledge_base_id=payload.knowledge_base_id,
+            document_id=payload.document_id,
+            top_k=5,
         )
-        for row in rows
+
+        answer = await generate_answer(
+            question=query,
+            chunks=chunks,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Search and answer generation failed: {exc}",
+        ) from exc
+
+    sources = [
+        SearchAnswerSource(
+            chunk_id=chunk.chunk_id,
+            document_id=chunk.document_id,
+            filename=chunk.filename,
+            chunk_index=chunk.chunk_index,
+            page_number=chunk.page_number,
+            distance=chunk.distance,
+        )
+        for chunk in chunks
     ]
+
+    return SearchAnswerResponse(
+        query=query,
+        answer=answer,
+        sources=sources,
+    )
+
+
+
+
+# @app.post("/search", response_model=list[SearchResult])
+# async def semantic_search(
+#     payload: SearchRequest,
+#     db: AsyncSession = Depends(get_db_session),
+# ):
+#     query = payload.query.strip()
+
+#     if not query:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Search query cannot be empty.",
+#         )
+
+#     top_k = max(1, min(payload.top_k, 20))
+#     query_embedding = embed_texts([query])[0]
+#     query_embedding_str = "[" + ",".join(str(value) for value in query_embedding) + "]"
+
+#     sql = """
+#         SELECT
+#             chunks.id AS chunk_id,
+#             chunks.document_id AS document_id,
+#             documents.filename AS filename,
+#             chunks.chunk_index AS chunk_index,
+#             chunks.page_number AS page_number,
+#             chunks.content AS content,
+#             chunks.embedding <=> CAST(:query_embedding AS vector) AS distance
+#         FROM chunks
+#         JOIN documents ON documents.id = chunks.document_id
+#         WHERE chunks.embedding IS NOT NULL
+#     """
+
+#     params = {
+#     "query_embedding": query_embedding_str,
+#     "top_k": top_k,
+# }
+
+#     if payload.knowledge_base_id is not None:
+#         sql += " AND documents.knowledge_base_id = :knowledge_base_id"
+#         params["knowledge_base_id"] = payload.knowledge_base_id
+
+#     if payload.document_id is not None:
+#         sql += " AND chunks.document_id = :document_id"
+#         params["document_id"] = payload.document_id
+
+#     sql += """
+#         ORDER BY distance ASC
+#         LIMIT :top_k
+#     """
+
+#     result = await db.execute(text(sql), params)
+#     rows = result.mappings().all()
+
+#     return [
+#         SearchResult(
+#             chunk_id=row["chunk_id"],
+#             document_id=row["document_id"],
+#             filename=row["filename"],
+#             chunk_index=row["chunk_index"],
+#             page_number=row["page_number"],
+#             content=row["content"],
+#             distance=float(row["distance"]),
+#         )
+#         for row in rows
+#     ]
 
 
 
