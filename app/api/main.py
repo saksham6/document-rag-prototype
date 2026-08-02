@@ -33,7 +33,7 @@ from document_rag_prototype.services.generation_service import generate_answer
 from document_rag_prototype.services.retrieval_service import retrieve_chunks
 from document_rag_prototype.api.routes.health import router as health_router
 
-
+from document_rag_prototype.api.routes.knowledge_bases import (router as knowledge_bases_router,)
 
 
 app = FastAPI(
@@ -42,6 +42,8 @@ app = FastAPI(
 )
 
 app.include_router(health_router)
+
+app.include_router(knowledge_bases_router)
 
 app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
@@ -93,90 +95,90 @@ class AskResponse(BaseModel):
 #     }
 
 
-@app.post("/knowledge-bases", response_model=KnowledgeBaseRead)
-async def create_knowledge_base(
-    payload: KnowledgeBaseCreate,
-    db: AsyncSession = Depends(get_db_session),
-):
-    knowledge_base = KnowledgeBase(
-        name=payload.name,
-        description=payload.description,
-    )
+# @app.post("/knowledge-bases", response_model=KnowledgeBaseRead)
+# async def create_knowledge_base(
+#     payload: KnowledgeBaseCreate,
+#     db: AsyncSession = Depends(get_db_session),
+# ):
+#     knowledge_base = KnowledgeBase(
+#         name=payload.name,
+#         description=payload.description,
+#     )
 
-    db.add(knowledge_base)
+#     db.add(knowledge_base)
 
-    try:
-        await db.commit()
-    except IntegrityError as exc:
-        await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="A knowledge base with this name already exists.",
-        ) from exc
+#     try:
+#         await db.commit()
+#     except IntegrityError as exc:
+#         await db.rollback()
+#         raise HTTPException(
+#             status_code=409,
+#             detail="A knowledge base with this name already exists.",
+#         ) from exc
 
-    await db.refresh(knowledge_base)
-    return knowledge_base
-
-
-@app.get("/knowledge-bases", response_model=list[KnowledgeBaseRead])
-async def list_knowledge_bases(
-    db: AsyncSession = Depends(get_db_session),
-):
-    result = await db.execute(select(KnowledgeBase).order_by(KnowledgeBase.id))
-    return result.scalars().all()
+#     await db.refresh(knowledge_base)
+#     return knowledge_base
 
 
-@app.post(
-    "/knowledge-bases/{knowledge_base_id}/documents/upload",
-    response_model=DocumentRead,
-)
-async def upload_document(
-    knowledge_base_id: int,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db_session),
-):
-    knowledge_base = await db.get(KnowledgeBase, knowledge_base_id)
+# @app.get("/knowledge-bases", response_model=list[KnowledgeBaseRead])
+# async def list_knowledge_bases(
+#     db: AsyncSession = Depends(get_db_session),
+# ):
+#     result = await db.execute(select(KnowledgeBase).order_by(KnowledgeBase.id))
+#     return result.scalars().all()
 
-    if knowledge_base is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Knowledge base not found.",
-        )
 
-    if not file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file must have a filename.",
-        )
+# @app.post(
+#     "/knowledge-bases/{knowledge_base_id}/documents/upload",
+#     response_model=DocumentRead,
+# )
+# async def upload_document(
+#     knowledge_base_id: int,
+#     file: UploadFile = File(...),
+#     db: AsyncSession = Depends(get_db_session),
+# ):
+#     knowledge_base = await db.get(KnowledgeBase, knowledge_base_id)
 
-    allowed_extensions = {".pdf", ".txt"}
-    file_extension = Path(file.filename).suffix.lower()
+#     if knowledge_base is None:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Knowledge base not found.",
+#         )
 
-    if file_extension not in allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF and TXT files are supported for now.",
-        )
+#     if not file.filename:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Uploaded file must have a filename.",
+#         )
 
-    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+#     allowed_extensions = {".pdf", ".txt"}
+#     file_extension = Path(file.filename).suffix.lower()
 
-    saved_path = UPLOAD_FOLDER / file.filename
+#     if file_extension not in allowed_extensions:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Only PDF and TXT files are supported for now.",
+#         )
 
-    with saved_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+#     UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
-    document = Document(
-        knowledge_base_id=knowledge_base_id,
-        filename=file.filename,
-        source_type="file",
-        status="uploaded",
-    )
+#     saved_path = UPLOAD_FOLDER / file.filename
 
-    db.add(document)
-    await db.commit()
-    await db.refresh(document)
+#     with saved_path.open("wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)
 
-    return document
+#     document = Document(
+#         knowledge_base_id=knowledge_base_id,
+#         filename=file.filename,
+#         source_type="file",
+#         status="uploaded",
+#     )
+
+#     db.add(document)
+#     await db.commit()
+#     await db.refresh(document)
+
+#     return document
 
 
 @app.post("/documents", response_model=DocumentRead)
