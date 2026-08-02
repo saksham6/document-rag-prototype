@@ -31,6 +31,7 @@ from document_rag_prototype.services.embedding_service import embed_texts
 
 from document_rag_prototype.services.generation_service import generate_answer
 from document_rag_prototype.services.retrieval_service import retrieve_chunks
+from document_rag_prototype.api.routes.health import router as health_router
 
 
 
@@ -39,6 +40,8 @@ app = FastAPI(
     title="Document RAG Prototype API",
     version="0.1.0",
 )
+
+app.include_router(health_router)
 
 app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
@@ -63,31 +66,31 @@ class AskResponse(BaseModel):
     sources: list[SourceItem]
 
 
-@app.get("/")
-def root() -> dict:
-    return {
-        "message": "Document RAG Prototype API is running.",
-        "docs": "/docs",
-        "health": "/health",
-    }
+# @app.get("/")
+# def root() -> dict:
+#     return {
+#         "message": "Document RAG Prototype API is running.",
+#         "docs": "/docs",
+#         "health": "/health",
+#     }
 
 
-@app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+# @app.get("/health")
+# def health() -> dict:
+#     return {"status": "ok"}
 
 
-@app.get("/db-check")
-async def db_check(db: AsyncSession = Depends(get_db_session)):
-    result = await db.execute(text("SELECT 1"))
-    value = result.scalar_one()
+# @app.get("/db-check")
+# async def db_check(db: AsyncSession = Depends(get_db_session)):
+#     result = await db.execute(text("SELECT 1"))
+#     value = result.scalar_one()
 
-    return {
-        "status": "ok",
-        "database": "connected",
-        "result": value,
-        "driver": "sqlalchemy+asyncpg",
-    }
+#     return {
+#         "status": "ok",
+#         "database": "connected",
+#         "result": value,
+#         "driver": "sqlalchemy+asyncpg",
+#     }
 
 
 @app.post("/knowledge-bases", response_model=KnowledgeBaseRead)
