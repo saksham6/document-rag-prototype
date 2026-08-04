@@ -6,11 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from document_rag_prototype.api.schemas.models import (
+    ChunkCreate,
+    ChunkRead,
     DocumentCreate,
     DocumentRead,
 )
 from document_rag_prototype.core.config import UPLOAD_FOLDER
-from document_rag_prototype.db.models import Document, KnowledgeBase
+from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
 from document_rag_prototype.db.session import get_db_session
 
 
@@ -106,4 +108,38 @@ async def list_documents(
     result = await db.execute(
         select(Document).order_by(Document.id)
     )
+    return result.scalars().all()
+
+@router.post("/chunks", response_model=ChunkRead)
+async def create_chunk(
+    payload: ChunkCreate,
+    db: AsyncSession = Depends(get_db_session),
+):
+    document = await db.get(Document, payload.document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found.",
+        )
+
+    chunk = Chunk(
+        document_id=payload.document_id,
+        chunk_index=payload.chunk_index,
+        content=payload.content,
+        page_number=payload.page_number,
+    )
+
+    db.add(chunk)
+    await db.commit()
+    await db.refresh(chunk)
+
+    return chunk
+
+
+@router.get("/chunks", response_model=list[ChunkRead])
+async def list_chunks(
+    db: AsyncSession = Depends(get_db_session),
+):
+    result = await db.execute(select(Chunk).order_by(Chunk.id))
     return result.scalars().all()
