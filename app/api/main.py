@@ -34,6 +34,7 @@ from document_rag_prototype.services.retrieval_service import retrieve_chunks
 from document_rag_prototype.api.routes.health import router as health_router
 
 from document_rag_prototype.api.routes.knowledge_bases import (router as knowledge_bases_router,)
+from document_rag_prototype.api.routes.documents import router as documents_router
 
 
 app = FastAPI(
@@ -44,6 +45,8 @@ app = FastAPI(
 app.include_router(health_router)
 
 app.include_router(knowledge_bases_router)
+
+app.include_router(documents_router)
 
 app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
