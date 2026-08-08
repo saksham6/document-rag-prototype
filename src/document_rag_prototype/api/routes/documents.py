@@ -1,9 +1,10 @@
 from pathlib import Path
-import shutil
+
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from document_rag_prototype.services.storage_service import storage_service
 
 from document_rag_prototype.api.schemas.models import (
     ChunkCreate,
@@ -11,7 +12,7 @@ from document_rag_prototype.api.schemas.models import (
     DocumentCreate,
     DocumentRead,
 )
-from document_rag_prototype.core.config import UPLOAD_FOLDER
+
 from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
 from document_rag_prototype.db.session import get_db_session
 
@@ -51,11 +52,10 @@ async def upload_document(
             detail="Only PDF and TXT files are supported for now.",
         )
 
-    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-    saved_path = UPLOAD_FOLDER / file.filename
-
-    with saved_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    saved_path = await storage_service.save_file (
+    file=file,
+    filename=file.filename,
+        )
 
     document = Document(
         knowledge_base_id=knowledge_base_id,
