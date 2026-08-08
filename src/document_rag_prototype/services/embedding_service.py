@@ -2,7 +2,7 @@ import os
 
 from openai import OpenAI
 
-from document_rag_prototype.config import (
+from document_rag_prototype.core.config import (
     OPENAI_EMBEDDING_DIMENSIONS,
     OPENAI_EMBEDDING_MODEL,
 )

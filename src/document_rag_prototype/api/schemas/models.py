@@ -69,3 +69,18 @@ class SearchResult(BaseModel):
     page_number: Optional[int]
     content: str
     distance: float
+
+
+class SearchAnswerSource(BaseModel):
+    chunk_id: int
+    document_id: int
+    filename: str
+    chunk_index: int
+    page_number: Optional[int] = None
+    distance: float
+
+
+class SearchAnswerResponse(BaseModel):
+    query: str
+    answer: str
+    sources: list[SearchAnswerSource]

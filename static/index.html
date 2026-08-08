@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Document RAG Prototype</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f6f6f6;
+      color: #222;
+    }
+
+    h1 {
+      margin-bottom: 4px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    input, textarea, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 14px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #444;
+    }
+
+    .answer {
+      white-space: pre-wrap;
+      background: #f0f0f0;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .source {
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Document RAG Prototype</h1>
+  <p>Upload documents, process them, and ask questions from your knowledge base.</p>
+
+  <!-- Knowledge Base Section -->
+  <div class="card">
+    <h2>1. Knowledge Base</h2>
+
+    <label for="kbName">New Knowledge Base Name</label>
+    <input id="kbName" type="text" placeholder="Example: Medical Reports" />
+
+    <label for="kbDescription">Description</label>
+    <input id="kbDescription" type="text" placeholder="Optional description" />
+
+    <button onclick="createKnowledgeBase()">Create Knowledge Base</button>
+    <button onclick="loadKnowledgeBases()">Refresh Knowledge Bases</button>
+
+    <label for="kbSelect">Select Knowledge Base</label>
+    <select id="kbSelect">
+      <option value="">No knowledge base loaded</option>
+    </select>
+
+    <div id="kbStatus" class="status"></div>
+  </div>
+
+  <!-- Upload + Processing Section -->
+  <div class="card">
+    <h2>2. Upload and Process Document</h2>
+
+    <label for="fileInput">Choose PDF/TXT File</label>
+    <input id="fileInput" type="file" accept=".pdf,.txt" />
+
+    <button onclick="uploadDocument()">Upload and Process Document</button>
+
+    <p class="small">
+      Last uploaded document ID:
+      <strong id="documentIdDisplay">None</strong>
+    </p>
+
+    <!-- <div class="row">
+      <button onclick="ingestDocument()">Ingest Document</button>
+      <button onclick="embedDocument()">Embed Document</button>
+    </div> -->
+
+    <div id="docStatus" class="status"></div>
+  </div>
+
+  <!-- Question Section -->
+  <div class="card">
+    <h2>3. Ask Question</h2>
+
+    <label for="question">Question</label>
+    <textarea id="question" placeholder="Ask something from your uploaded document..."></textarea>
+
+    <button onclick="askQuestion()">Ask</button>
+
+    <div id="searchStatus" class="status"></div>
+  </div>
+
+  <!-- Answer Section -->
+  <div class="card">
+    <h2>Answer</h2>
+    <div id="answer" class="answer">No answer yet.</div>
+  </div>
+
+  <!-- Sources Section -->
+  <div class="card">
+    <h2>Sources</h2>
+    <div id="sources">No sources yet.</div>
+  </div>
+
+  <script>
+
+    async function readResponse(response) {
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text || response.statusText };
+  }
+}
+    let currentDocumentId = null;
+
+    function getSelectedKnowledgeBaseId() {
+      const value = document.getElementById("kbSelect").value;
+      return value ? Number(value) : null;
+    }
+
+    async function createKnowledgeBase() {
+      const name = document.getElementById("kbName").value.trim();
+      const description = document.getElementById("kbDescription").value.trim();
+      const statusEl = document.getElementById("kbStatus");
+
+      if (!name) {
+        statusEl.textContent = "Please enter a knowledge base name.";
+        return;
+      }
+
+      statusEl.textContent = "Creating knowledge base...";
+
+      try {
+        const response = await fetch("/knowledge-bases", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: name,
+            description: description || null
+          })
+        });
+
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to create knowledge base.");
+        }
+
+        statusEl.textContent = `Created KB: ${data.name} (ID: ${data.id})`;
+        await loadKnowledgeBases(data.id);
+
+      } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function loadKnowledgeBases(selectedId = null) {
+      const statusEl = document.getElementById("kbStatus");
+      const selectEl = document.getElementById("kbSelect");
+
+      statusEl.textContent = "Loading knowledge bases...";
+
+      try {
+        const response = await fetch("/knowledge-bases");
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to load knowledge bases.");
+        }
+
+        selectEl.innerHTML = "";
+
+        if (!data.length) {
+          selectEl.innerHTML = `<option value="">No knowledge bases found</option>`;
+          statusEl.textContent = "No knowledge bases found.";
+          return;
+        }
+
+        data.forEach(kb => {
+          const option = document.createElement("option");
+          option.value = kb.id;
+          option.textContent = `${kb.id} - ${kb.name}`;
+          selectEl.appendChild(option);
+        });
+
+        if (selectedId) {
+          selectEl.value = selectedId;
+        }
+
+        statusEl.textContent = "Knowledge bases loaded.";
+
+      } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function uploadDocument() {
+  const kbId = getSelectedKnowledgeBaseId();
+  const fileInput = document.getElementById("fileInput");
+  const statusEl = document.getElementById("docStatus");
+
+  if (!kbId) {
+    statusEl.textContent = "Please select a knowledge base first.";
+    return;
+  }
+
+  if (!fileInput.files.length) {
+    statusEl.textContent = "Please choose a PDF or TXT file.";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    statusEl.textContent = "Uploading document...";
+
+    const uploadResponse = await fetch(`/knowledge-bases/${kbId}/documents/upload`, {
+      method: "POST",
+      body: formData
+    });
+
+    const uploadData = await readResponse(uploadResponse);
+
+    if (!uploadResponse.ok) {
+      throw new Error(uploadData.detail || "Failed to upload document.");
+    }
+
+    currentDocumentId = uploadData.id;
+    document.getElementById("documentIdDisplay").textContent = currentDocumentId;
+
+    statusEl.textContent = `Uploaded document ID ${currentDocumentId}. Ingesting document...`;
+
+    const ingestResponse = await fetch(`/documents/${currentDocumentId}/ingest`, {
+      method: "POST"
+    });
+
+    const ingestData = await readResponse(ingestResponse);
+
+    if (!ingestResponse.ok) {
+      throw new Error(ingestData.detail || "Failed to ingest document.");
+    }
+
+    statusEl.textContent =
+      `Ingested document. Chunks created: ${ingestData.chunks_created}. Embedding chunks...`;
+
+    const embedResponse = await fetch(`/documents/${currentDocumentId}/embed`, {
+      method: "POST"
+    });
+
+    const embedData = await readResponse(embedResponse);
+
+    if (!embedResponse.ok) {
+      throw new Error(embedData.detail || "Failed to embed document.");
+    }
+
+    statusEl.textContent =
+      `Document processed successfully. Embedded ${embedData.chunks_embedded} chunks. Now you can ask questions.`;
+
+  } catch (error) {
+    statusEl.textContent = `Error: ${error.message}`;
+  }
+}
+
+    async function ingestDocument() {
+      const statusEl = document.getElementById("docStatus");
+
+      if (!currentDocumentId) {
+        statusEl.textContent = "Upload a document first.";
+        return;
+      }
+
+      statusEl.textContent = "Ingesting document and creating chunks...";
+
+      try {
+        const response = await fetch(`/documents/${currentDocumentId}/ingest`, {
+          method: "POST"
+        });
+
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to ingest document.");
+        }
+
+        statusEl.textContent = `Ingested document. Chunks created: ${data.chunks_created}`;
+
+      } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function embedDocument() {
+      const statusEl = document.getElementById("docStatus");
+
+      if (!currentDocumentId) {
+        statusEl.textContent = "Upload and ingest a document first.";
+        return;
+      }
+
+      statusEl.textContent = "Embedding chunks. This may take some time...";
+
+      try {
+        const response = await fetch(`/documents/${currentDocumentId}/embed`, {
+          method: "POST"
+        });
+
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to embed document.");
+        }
+
+        statusEl.textContent =
+          `Embedded ${data.chunks_embedded} chunks using ${data.embedding_model}.`;
+
+      } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    async function askQuestion() {
+      const kbId = getSelectedKnowledgeBaseId();
+      const question = document.getElementById("question").value.trim();
+
+      const statusEl = document.getElementById("searchStatus");
+      const answerEl = document.getElementById("answer");
+      const sourcesEl = document.getElementById("sources");
+
+      if (!kbId) {
+        statusEl.textContent = "Please select a knowledge base first.";
+        return;
+      }
+
+      if (!question) {
+        statusEl.textContent = "Please enter a question.";
+        return;
+      }
+
+      statusEl.textContent = "Searching and generating answer...";
+      answerEl.textContent = "";
+      sourcesEl.innerHTML = "";
+
+      try {
+        const response = await fetch("/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: question,
+            knowledge_base_id: kbId
+          })
+        });
+
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Search failed.");
+        }
+
+        statusEl.textContent = "Done.";
+        answerEl.textContent = data.answer || "No answer returned.";
+
+        if (!data.sources || data.sources.length === 0) {
+          sourcesEl.textContent = "No sources found.";
+          return;
+        }
+
+        sourcesEl.innerHTML = data.sources.map((source, index) => `
+          <div class="source">
+            <strong>Source ${index + 1}</strong><br>
+            File: ${source.filename}<br>
+            Page: ${source.page_number ?? "N/A"}<br>
+            Chunk ID: ${source.chunk_id}<br>
+            Document ID: ${source.document_id}<br>
+            Distance: ${Number(source.distance).toFixed(4)}
+          </div>
+        `).join("");
+
+      } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+        answerEl.textContent = "";
+        sourcesEl.textContent = "";
+      }
+    }
+
+    window.addEventListener("load", () => {
+      loadKnowledgeBases();
+    });
+  </script>
+</body>
+</html>
