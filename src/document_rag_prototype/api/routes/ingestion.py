@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from document_rag_prototype.core.config import UPLOAD_FOLDER
+
 from document_rag_prototype.db.models import Chunk, Document
 from document_rag_prototype.db.session import get_db_session
 from document_rag_prototype.services.embedding_service import embed_texts
@@ -10,7 +10,7 @@ from document_rag_prototype.services.ingestion_service import (
     extract_text_from_file,
     split_text_into_chunks,
 )
-
+from document_rag_prototype.services.storage_service import storage_service
 
 router = APIRouter(tags=["Ingestion"])
 
@@ -28,16 +28,14 @@ async def ingest_document(
             detail="Document not found.",
         )
 
-    file_path = UPLOAD_FOLDER / document.filename
 
-    if not file_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"Uploaded file not found: {document.filename}",
-        )
 
     try:
-        pages = extract_text_from_file(file_path)
+        file_content = await storage_service.read_file(document.filename)
+        pages = extract_text_from_file(
+    file_content=file_content,
+    filename=document.filename,
+)
         chunk_payloads = split_text_into_chunks(pages)
     except ValueError as exc:
         raise HTTPException(

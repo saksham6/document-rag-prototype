@@ -3,21 +3,33 @@ from pathlib import Path
 import fitz
 
 
-def extract_text_from_file(file_path: Path) -> list[tuple[int | None, str]]:
-    suffix = file_path.suffix.lower()
+def extract_text_from_file(
+    file_content: bytes,
+    filename: str,
+) -> list[tuple[int | None, str]]:
+    suffix = Path(filename).suffix.lower()
 
     if suffix == ".txt":
-        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        text = file_content.decode(
+            "utf-8",
+            errors="ignore",
+        )
         return [(None, text)]
 
     if suffix == ".pdf":
         pages: list[tuple[int | None, str]] = []
 
-        with fitz.open(file_path) as document:
+        with fitz.open(
+            stream=file_content,
+            filetype="pdf",
+        ) as document:
             for page_index, page in enumerate(document, start=1):
                 text = page.get_text("text").strip()
+
                 if text:
-                    pages.append((page_index, text))
+                    pages.append(
+                        (page_index, text)
+                    )
 
         return pages
 

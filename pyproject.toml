@@ -5,8 +5,10 @@ description = "Retrieval-first RAG prototype for TXT and PDF documents"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "aiohttp>=3.14.3",
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
+    "azure-storage-blob>=12.30.0",
     "fastapi>=0.136.1",
     "openai>=2.36.0",
     "pgvector>=0.4.2",

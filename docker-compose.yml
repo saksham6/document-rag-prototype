@@ -6,8 +6,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://raguser:ragpass@postgres-db:5432/ragdb
+      DATABASE_URL: ${DATABASE_URL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME:-uploads}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
     depends_on:
       - postgres-db
     volumes:
