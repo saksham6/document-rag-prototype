@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -13,9 +13,25 @@ class Base(DeclarativeBase):
 class KnowledgeBase(Base):
     __tablename__ = "knowledge_bases"
 
+    __table_args__ = (
+    UniqueConstraint(
+        "workspace_id",
+        "name",
+        name="uq_knowledge_bases_workspace_name",
+    ),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+
+    workspace_id: Mapped[Optional[str]] = mapped_column(
+        Uuid(as_uuid=False),
+        nullable=True,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -23,9 +39,9 @@ class KnowledgeBase(Base):
     )
 
     documents: Mapped[list["Document"]] = relationship(
-        back_populates="knowledge_base",
-        cascade="all, delete-orphan",
-    )
+    back_populates="knowledge_base",
+    cascade="all, delete-orphan",
+)
 
 
 class Document(Base):
@@ -38,6 +54,8 @@ class Document(Base):
         index=True,
     )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    storage_key: Mapped[Optional[str]] = mapped_column(String(1000),nullable=True,
+)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, default="file")
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="uploaded")
     created_at: Mapped[datetime] = mapped_column(

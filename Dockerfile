@@ -6,6 +6,7 @@ COPY pyproject.toml uv.lock ./
 COPY README.md ./
 COPY src ./src
 COPY app ./app
+COPY static ./static
 COPY data ./data
 COPY alembic.ini ./
 COPY alembic ./alembic

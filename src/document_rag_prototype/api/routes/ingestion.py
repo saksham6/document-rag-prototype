@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from unittest import result
+
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-from document_rag_prototype.db.models import Chunk, Document
+from document_rag_prototype.db.models import Chunk, Document, KnowledgeBase
 from document_rag_prototype.db.session import get_db_session
 from document_rag_prototype.services.embedding_service import embed_texts
 from document_rag_prototype.services.ingestion_service import (
@@ -18,9 +20,19 @@ router = APIRouter(tags=["Ingestion"])
 @router.post("/documents/{document_id}/ingest")
 async def ingest_document(
     document_id: int,
+    x_workspace_id: str = Header(..., alias="X-Workspace-ID"),
     db: AsyncSession = Depends(get_db_session),
 ):
-    document = await db.get(Document, document_id)
+    result = await db.execute(
+    select(Document)
+    .join(KnowledgeBase)
+    .where(
+        Document.id == document_id,
+        KnowledgeBase.workspace_id == x_workspace_id,
+    )
+)
+
+    document = result.scalar_one_or_none()
 
     if document is None:
         raise HTTPException(
@@ -31,7 +43,9 @@ async def ingest_document(
 
 
     try:
-        file_content = await storage_service.read_file(document.filename)
+        file_content = await storage_service.read_file(
+    document.storage_key or document.filename
+    )
         pages = extract_text_from_file(
     file_content=file_content,
     filename=document.filename,
@@ -89,9 +103,19 @@ async def ingest_document(
 @router.post("/documents/{document_id}/embed")
 async def embed_document_chunks(
     document_id: int,
+    x_workspace_id: str = Header(..., alias="X-Workspace-ID"),
     db: AsyncSession = Depends(get_db_session),
 ):
-    document = await db.get(Document, document_id)
+    result = await db.execute(
+    select(Document)
+    .join(KnowledgeBase)
+    .where(
+        Document.id == document_id,
+        KnowledgeBase.workspace_id == x_workspace_id,
+    )
+)
+
+    document = result.scalar_one_or_none()
 
     if document is None:
         raise HTTPException(

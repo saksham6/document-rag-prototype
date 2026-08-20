@@ -24,6 +24,8 @@ class LocalStorageService(StorageService):
         file_path = UPLOAD_FOLDER / filename
         content = await file.read()
 
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
         with open(file_path, "wb") as buffer:
             buffer.write(content)
 

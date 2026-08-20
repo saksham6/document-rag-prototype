@@ -2,450 +2,1677 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Document RAG Prototype</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saksham Document RAG</title>
   <style>
+    :root {
+      --bg: #f7f7f5;
+      --panel: #ffffff;
+      --panel-soft: #fafafa;
+      --border: #e7e7e3;
+      --text: #1f1f1d;
+      --muted: #71716b;
+      --accent: #5b5bd6;
+      --accent-soft: #efefff;
+      --success: #2e7d5b;
+      --danger: #b42318;
+      --shadow: 0 8px 28px rgba(20, 20, 20, 0.06);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: Arial, sans-serif;
-      max-width: 1000px;
-      margin: 40px auto;
-      padding: 0 20px;
-      background: #f6f6f6;
-      color: #222;
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
     }
 
-    h1 {
-      margin-bottom: 4px;
+    button, input, textarea, select { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 64px 1fr;
     }
 
-    .card {
-      background: white;
-      padding: 20px;
-      margin-top: 20px;
+    .topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
       border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      display: grid;
+      place-items: center;
+      background: var(--text);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
     }
 
-    label {
+    .brand-text strong {
       display: block;
-      margin-top: 12px;
-      font-weight: bold;
+      font-size: 14px;
+      line-height: 1.1;
     }
 
-    input, textarea, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 6px;
-      font-size: 15px;
-      box-sizing: border-box;
+    .brand-text span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
     }
 
-    textarea {
-      min-height: 90px;
-      resize: vertical;
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    button {
-      margin-top: 14px;
-      cursor: pointer;
-      font-weight: bold;
+    .status {
+      color: var(--success);
+      background: #eef7f2;
+      border: 1px solid #d7eadf;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+    }
+
+    .sources-panel,
+    .chat-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-height: calc(100vh - 96px);
+    }
+
+    .sources-panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .small-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 7px;
     }
 
     .row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: 1fr 40px;
+      gap: 8px;
     }
 
-    .status {
-      margin-top: 10px;
-      font-weight: bold;
-      color: #444;
+    select, input, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
     }
 
-    .answer {
-      white-space: pre-wrap;
-      background: #f0f0f0;
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 10px;
+    select, input {
+      min-height: 40px;
+      padding: 9px 10px;
     }
 
-    .source {
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
-      margin-top: 10px;
+    select:focus, input:focus, textarea:focus {
+      border-color: #b7b7ef;
+      box-shadow: 0 0 0 3px rgba(91, 91, 214, .08);
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      min-height: 40px;
+      padding: 9px 12px;
+      font-weight: 700;
+    }
+
+    .btn-primary {
+      background: var(--text);
+      color: #fff;
+    }
+
+    .btn-primary:hover { opacity: .9; }
+
+    .btn-soft {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-icon {
+      padding: 0;
+      font-size: 20px;
+    }
+
+    .upload-box {
+      border: 1.5px dashed #cfcfc9;
+      border-radius: 14px;
+      background: var(--panel-soft);
+      padding: 20px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .upload-box:hover,
+    .upload-box.dragover {
+      background: var(--accent-soft);
+      border-color: #a9a9ef;
+    }
+
+    .upload-box strong {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .upload-box span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    #fileInput { display: none; }
+
+    .source-list {
+      display: grid;
+      gap: 8px;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .source-empty {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .source-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: #fff;
+    }
+
+    .file-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: #f1f1ef;
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .file-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .file-name {
+      font-size: 11px;
+      font-weight: 700;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .file-status {
+      margin-top: 3px;
+      font-size: 10px;
+      color: var(--success);
+    }
+
+    .feedback {
+      min-height: 16px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .feedback.error { color: var(--danger); }
+
+    .chat-panel {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .chat-head {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .chat-head h2 {
+      margin: 0;
       font-size: 14px;
     }
 
-    .small {
-      font-size: 13px;
-      color: #666;
+    .chat-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 11px;
     }
+
+    .kb-chip {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: var(--accent-soft);
+      color: #4c4cba;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .messages {
+      padding: 28px;
+      overflow-y: auto;
+      min-height: 480px;
+      max-height: calc(100vh - 260px);
+    }
+
+    .empty {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .empty-inner {
+      max-width: 560px;
+    }
+
+    .empty-badge {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 16px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .empty h1 {
+      margin: 0;
+      font-size: 27px;
+      letter-spacing: -.03em;
+    }
+
+    .empty p {
+      margin: 10px auto 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .suggestions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .suggestion {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-size: 11px;
+      color: #4d4d49;
+      cursor: pointer;
+    }
+
+    .suggestion:hover {
+      background: var(--accent-soft);
+      border-color: #c8c8f4;
+    }
+
+    .msg {
+      margin-bottom: 22px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .msg.user { justify-items: end; }
+    .msg.ai { justify-items: start; }
+
+    .msg-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .bubble {
+      max-width: min(760px, 88%);
+      padding: 13px 15px;
+      border-radius: 15px;
+      line-height: 1.6;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.user .bubble {
+      color: #fff;
+      background: var(--text);
+      border-bottom-right-radius: 5px;
+    }
+
+    .msg.ai .bubble {
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 5px;
+    }
+
+    .thinking {
+      display: flex;
+      gap: 5px;
+      padding: 13px 15px;
+      border: 1px solid var(--border);
+      background: #fafafa;
+      border-radius: 15px;
+    }
+
+    .thinking i {
+      width: 6px;
+      height: 6px;
+      background: #9c9c96;
+      border-radius: 50%;
+      animation: pulse 1.1s infinite ease-in-out;
+    }
+
+    .thinking i:nth-child(2) { animation-delay: .15s; }
+    .thinking i:nth-child(3) { animation-delay: .3s; }
+
+    @keyframes pulse {
+      0%, 80%, 100% { opacity: .3; transform: scale(.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
+
+    .source-cards {
+      width: min(760px, 88%);
+      display: grid;
+      gap: 7px;
+    }
+
+    .source-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 11px;
+      font-size: 11px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .source-card strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .source-meta { color: var(--muted); }
+
+    .distance {
+      color: #4c4cba;
+      background: var(--accent-soft);
+      border-radius: 999px;
+      padding: 4px 6px;
+      height: fit-content;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .composer-wrap {
+      padding: 14px 18px 18px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 4px 18px rgba(20,20,20,.04);
+    }
+
+    .composer textarea {
+      border: 0;
+      resize: none;
+      outline: 0;
+      min-height: 42px;
+      max-height: 140px;
+      padding: 10px;
+      line-height: 1.45;
+    }
+
+    .send {
+      min-width: 78px;
+      align-self: stretch;
+    }
+
+    .composer-note {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 10px;
+      min-height: 14px;
+    }
+
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(0,0,0,.35);
+      z-index: 50;
+    }
+
+    .modal-bg.open { display: grid; }
+
+    .modal {
+      width: min(450px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.2);
+    }
+
+    .modal h3 { margin: 0; font-size: 16px; }
+    .modal p { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .modal .field { margin-top: 12px; }
+    .modal label { display:block; margin-bottom:5px; font-size:11px; font-weight:700; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+
+    @media (max-width: 850px) {
+      .workspace { grid-template-columns: 1fr; }
+      .sources-panel, .chat-panel { min-height: auto; }
+      .messages { max-height: none; }
+    }
+
+    @media (max-width: 560px) {
+      .topbar { padding: 0 14px; }
+      .brand-text span { display:none; }
+      .workspace { padding: 8px; gap: 8px; }
+      .messages { padding: 18px 12px; }
+      .chat-head { align-items:flex-start; flex-direction:column; }
+      .composer { grid-template-columns: 1fr; }
+      .send { width:100%; }
+    }
+  
+    /* Refined source panel */
+    .sources-panel {
+      padding: 18px;
+      gap: 0;
+      background: #fbfbfa;
+    }
+
+    .sources-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 2px 2px 16px;
+    }
+
+    .panel-title {
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .mini-add-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+
+    .mini-add-btn:hover {
+      background: #f4f4f2;
+    }
+
+    .source-section {
+      padding: 16px 2px;
+      border-top: 1px solid var(--border);
+    }
+
+    .source-section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .kb-select {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 11px;
+      background: #fff;
+      border: 1px solid #deded8;
+      font-weight: 600;
+    }
+
+    .upload-box {
+      min-height: 132px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: 1px dashed #cfcfc8;
+      background: #fff;
+      padding: 18px 14px;
+    }
+
+    .upload-symbol {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 6px;
+      background: #f1f1ef;
+      color: #55554f;
+      font-size: 20px;
+    }
+
+    .upload-box strong {
+      font-size: 12px;
+    }
+
+    .upload-box span {
+      max-width: 200px;
+      line-height: 1.5;
+    }
+
+    .add-source-btn {
+      width: 100%;
+      margin-top: 9px;
+      background: #2d2d2a;
+    }
+
+    .add-source-btn:hover {
+      background: #11110f;
+    }
+
+    .source-list-section {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .source-list-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+    }
+
+    .source-count {
+      min-width: 24px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: #f0f0ed;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .source-list {
+      max-height: none;
+    }
+
+    .source-empty {
+      min-height: 120px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 4px;
+      text-align: center;
+      padding: 16px;
+      color: #4d4d48;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .source-empty span {
+      color: var(--muted);
+      font-weight: 400;
+      font-size: 10px;
+    }
+
+    .source-empty-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 4px;
+      background: #f4f4f1;
+      color: #8b8b84;
+    }
+
+    .source-item {
+      padding: 10px 11px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(20,20,20,.02);
+    }
+
+
+
+    /* =========================================================
+   FINAL LAYOUT FIX
+   Keep sidebar + chat inside viewport.
+   Long document/message lists scroll internally.
+   ========================================================= */
+
+/* Keep the complete application inside the browser viewport */
+.app {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Area below the 64px top bar */
+.workspace {
+  height: calc(100vh - 64px);
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+/* Both columns stay the same viewport height */
+.sources-panel,
+.chat-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+/* -------------------------
+   LEFT: SOURCES PANEL
+   ------------------------- */
+
+.sources-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The document section takes remaining sidebar space */
+.source-list-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header stays visible */
+.source-list-heading {
+  flex: 0 0 auto;
+}
+
+/* Only the document list scrolls */
+.source-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 3px;
+}
+
+/* Prevent individual document cards from shrinking */
+.source-item {
+  flex-shrink: 0;
+}
+
+
+/* -------------------------
+   RIGHT: CHAT PANEL
+   ------------------------- */
+
+.chat-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/* Only chat messages scroll */
+.messages {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+/* Keep prompt/composer permanently at bottom */
+.composer-wrap {
+  flex-shrink: 0;
+  position: relative;
+  background: #fff;
+}
+
+
+/* -------------------------
+   SMALL SCREENS
+   Let page grow normally
+   ------------------------- */
+
+@media (max-width: 850px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .workspace {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .sources-panel,
+  .chat-panel {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .source-list {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .messages {
+    min-height: 480px;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
   </style>
 </head>
-
 <body>
-  <h1>Document RAG Prototype</h1>
-  <p>Upload documents, process them, and ask questions from your knowledge base.</p>
+<div class="app">
 
-  <!-- Knowledge Base Section -->
-  <div class="card">
-    <h2>1. Knowledge Base</h2>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">SR</div>
+      <div class="brand-text">
+        <strong>Saksham Document RAG</strong>
+        <span>Source-grounded document Q&A</span>
+      </div>
+    </div>
 
-    <label for="kbName">New Knowledge Base Name</label>
-    <input id="kbName" type="text" placeholder="Example: Medical Reports" />
+    <div class="top-right">
+      <div class="status">RAG workspace</div>
+    </div>
+  </header>
 
-    <label for="kbDescription">Description</label>
-    <input id="kbDescription" type="text" placeholder="Optional description" />
+  <main class="workspace">
 
-    <button onclick="createKnowledgeBase()">Create Knowledge Base</button>
-    <button onclick="loadKnowledgeBases()">Refresh Knowledge Bases</button>
+    <aside class="sources-panel">
+      <div class="sources-header">
+        <div>
+          <h2 class="panel-title">Sources</h2>
+          <p class="panel-subtitle">Build a source set, then chat with it.</p>
+        </div>
+        <button class="mini-add-btn" onclick="openKbModal()" title="Create knowledge base">+</button>
+      </div>
 
-    <label for="kbSelect">Select Knowledge Base</label>
-    <select id="kbSelect">
-      <option value="">No knowledge base loaded</option>
-    </select>
+      <section class="source-section">
+        <div class="small-label">Knowledge base</div>
+        <select id="kbSelect" class="kb-select">
+          <option value="">Loading...</option>
+        </select>
+        <div id="kbStatus" class="feedback"></div>
+      </section>
 
-    <div id="kbStatus" class="status"></div>
+      <section class="source-section">
+        <div class="small-label">Add source</div>
+
+        <label id="uploadBox" class="upload-box" for="fileInput">
+          <div class="upload-symbol">＋</div>
+          <strong>Choose a PDF or TXT</strong>
+          <span>Click to browse or drop a file here</span>
+        </label>
+
+        <input id="fileInput" type="file" accept=".pdf,.txt" />
+
+        <button id="uploadButton" class="btn btn-primary add-source-btn" onclick="uploadDocument()" disabled>
+          Add source
+        </button>
+
+        <div id="docStatus" class="feedback"></div>
+      </section>
+
+      <section class="source-section source-list-section">
+        <div class="source-list-heading">
+          <div class="small-label" style="margin:0;">Sources in this session</div>
+          <span id="sourceCount" class="source-count">0</span>
+        </div>
+
+        <div id="sourceList" class="source-list">
+          <div class="source-empty">
+            <div class="source-empty-icon">□</div>
+            <div>No sources yet</div>
+            <span>Processed files will appear here.</span>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="chat-panel">
+      <header class="chat-head">
+        <div>
+          <h2>Chat with your sources</h2>
+          <p>Ask questions grounded in the selected knowledge base.</p>
+        </div>
+        <div id="activeKbChip" class="kb-chip">No knowledge base selected</div>
+      </header>
+
+      <div id="messages" class="messages">
+        <div id="emptyState" class="empty">
+          <div class="empty-inner">
+            <div class="empty-badge">R</div>
+            <h1>Explore your documents</h1>
+            <p>
+              Add sources on the left, then ask questions here.
+              Answers are generated from retrieved document chunks and include source references.
+            </p>
+
+            <div class="suggestions">
+              <button class="suggestion" onclick="useSuggestion('Summarize the main findings.')">Summarize</button>
+              <button class="suggestion" onclick="useSuggestion('What methodology was used?')">Methodology</button>
+              <button class="suggestion" onclick="useSuggestion('What are the main conclusions?')">Conclusions</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="composer-wrap">
+        <div class="composer">
+          <textarea id="question" rows="1" placeholder="Ask anything about your sources..."></textarea>
+          <button id="askButton" class="btn btn-primary send" onclick="askQuestion()">Ask</button>
+        </div>
+        <div id="searchStatus" class="composer-note">Enter to send · Shift + Enter for a new line</div>
+      </footer>
+    </section>
+
+  </main>
+</div>
+
+<div id="kbModal" class="modal-bg">
+  <div class="modal">
+    <h3>Create knowledge base</h3>
+    <p>Group related documents under one workspace.</p>
+
+    <div class="field">
+      <label for="kbName">Name</label>
+      <input id="kbName" type="text" placeholder="Example: Thesis Papers" />
+    </div>
+
+    <div class="field">
+      <label for="kbDescription">Description</label>
+      <input id="kbDescription" type="text" placeholder="Optional" />
+    </div>
+
+    <div id="kbModalStatus" class="feedback"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-soft" onclick="closeKbModal()">Cancel</button>
+      <button id="createKbButton" class="btn btn-primary" onclick="createKnowledgeBase()">Create</button>
+    </div>
   </div>
+</div>
 
-  <!-- Upload + Processing Section -->
-  <div class="card">
-    <h2>2. Upload and Process Document</h2>
+<script>
+  let workspaceId = localStorage.getItem("workspace_id");
 
-    <label for="fileInput">Choose PDF/TXT File</label>
-    <input id="fileInput" type="file" accept=".pdf,.txt" />
-
-    <button onclick="uploadDocument()">Upload and Process Document</button>
-
-    <p class="small">
-      Last uploaded document ID:
-      <strong id="documentIdDisplay">None</strong>
-    </p>
-
-    <!-- <div class="row">
-      <button onclick="ingestDocument()">Ingest Document</button>
-      <button onclick="embedDocument()">Embed Document</button>
-    </div> -->
-
-    <div id="docStatus" class="status"></div>
-  </div>
-
-  <!-- Question Section -->
-  <div class="card">
-    <h2>3. Ask Question</h2>
-
-    <label for="question">Question</label>
-    <textarea id="question" placeholder="Ask something from your uploaded document..."></textarea>
-
-    <button onclick="askQuestion()">Ask</button>
-
-    <div id="searchStatus" class="status"></div>
-  </div>
-
-  <!-- Answer Section -->
-  <div class="card">
-    <h2>Answer</h2>
-    <div id="answer" class="answer">No answer yet.</div>
-  </div>
-
-  <!-- Sources Section -->
-  <div class="card">
-    <h2>Sources</h2>
-    <div id="sources">No sources yet.</div>
-  </div>
-
-  <script>
-
-    async function readResponse(response) {
-  const text = await response.text();
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { detail: text || response.statusText };
+  if (!workspaceId) {
+    workspaceId = crypto.randomUUID();
+    localStorage.setItem("workspace_id", workspaceId);
   }
-}
-    let currentDocumentId = null;
 
-    function getSelectedKnowledgeBaseId() {
-      const value = document.getElementById("kbSelect").value;
-      return value ? Number(value) : null;
+  let currentDocumentId = null;
+  const sessionDocuments = [];
+
+  async function readResponse(response) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { detail: text || response.statusText };
+    }
+  }
+
+  function getSelectedKnowledgeBaseId() {
+    const value = document.getElementById("kbSelect").value;
+    return value ? Number(value) : null;
+  }
+
+  function getSelectedKnowledgeBaseName() {
+    const select = document.getElementById("kbSelect");
+    return select.value ? select.options[select.selectedIndex].textContent : null;
+  }
+
+  function setFeedback(id, text, isError = false) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.classList.toggle("error", isError);
+  }
+
+  function openKbModal() {
+    document.getElementById("kbModal").classList.add("open");
+    document.getElementById("kbName").focus();
+  }
+
+  function closeKbModal() {
+    document.getElementById("kbModal").classList.remove("open");
+    setFeedback("kbModalStatus", "");
+  }
+
+  async function createKnowledgeBase() {
+    const name = document.getElementById("kbName").value.trim();
+    const description = document.getElementById("kbDescription").value.trim();
+    const button = document.getElementById("createKbButton");
+
+    if (!name) {
+      setFeedback("kbModalStatus", "Please enter a knowledge base name.", true);
+      return;
     }
 
-    async function createKnowledgeBase() {
-      const name = document.getElementById("kbName").value.trim();
-      const description = document.getElementById("kbDescription").value.trim();
-      const statusEl = document.getElementById("kbStatus");
+    button.disabled = true;
+    button.textContent = "Creating...";
 
-      if (!name) {
-        statusEl.textContent = "Please enter a knowledge base name.";
+    try {
+      const response = await fetch("/knowledge-bases", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Workspace-ID": workspaceId
+        },
+        body: JSON.stringify({
+          name,
+          description: description || null
+        })
+      });
+
+      const data = await readResponse(response);
+
+      if (!response.ok) {
+    const errorData = await response.json();
+
+      if (
+          errorData.detail &&
+          typeof errorData.detail === "object" &&
+          errorData.detail.message
+      ) {
+          const filenames = errorData.detail.documents || [];
+
+          const message =
+              errorData.detail.message +
+              (filenames.length
+                  ? "\n\nAvailable documents:\n" +
+                    filenames.map(name => `• ${name}`).join("\n")
+                  : "");
+
+          throw new Error(message);
+      }
+
+    throw new Error(errorData.detail || "Search request failed.");
+  }
+
+      await loadKnowledgeBases(data.id);
+      document.getElementById("kbName").value = "";
+      document.getElementById("kbDescription").value = "";
+      closeKbModal();
+
+    } catch (error) {
+      setFeedback("kbModalStatus", error.message, true);
+
+    } finally {
+      button.disabled = false;
+      button.textContent = "Create";
+    }
+  }
+
+  async function loadKnowledgeBases(selectedId = null) {
+    const select = document.getElementById("kbSelect");
+
+    try {
+      const response = await fetch("/knowledge-bases", {
+        headers: {
+          "X-Workspace-ID": workspaceId
+        }
+      });
+      const data = await readResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to load knowledge bases.");
+      }
+
+      select.innerHTML = "";
+
+      if (!data.length) {
+        select.innerHTML = `<option value="">No knowledge bases</option>`;
+        setFeedback("kbStatus", "Create one with the + button.");
+        updateActiveKnowledgeBase();
         return;
       }
 
-      statusEl.textContent = "Creating knowledge base...";
+      data.forEach(kb => {
+        const option = document.createElement("option");
+        option.value = kb.id;
+        option.textContent = kb.name;
+        select.appendChild(option);
+      });
 
-      try {
-        const response = await fetch("/knowledge-bases", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            name: name,
-            description: description || null
-          })
-        });
-
-        const data = await readResponse(response);
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to create knowledge base.");
-        }
-
-        statusEl.textContent = `Created KB: ${data.name} (ID: ${data.id})`;
-        await loadKnowledgeBases(data.id);
-
-      } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
+      if (selectedId) {
+        select.value = selectedId;
       }
+
+      setFeedback("kbStatus", "");
+      updateActiveKnowledgeBase();
+
+    } catch (error) {
+      select.innerHTML = `<option value="">Unable to load</option>`;
+      setFeedback("kbStatus", error.message, true);
     }
+  }
 
-    async function loadKnowledgeBases(selectedId = null) {
-      const statusEl = document.getElementById("kbStatus");
-      const selectEl = document.getElementById("kbSelect");
-
-      statusEl.textContent = "Loading knowledge bases...";
-
-      try {
-        const response = await fetch("/knowledge-bases");
-        const data = await readResponse(response);
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to load knowledge bases.");
-        }
-
-        selectEl.innerHTML = "";
-
-        if (!data.length) {
-          selectEl.innerHTML = `<option value="">No knowledge bases found</option>`;
-          statusEl.textContent = "No knowledge bases found.";
-          return;
-        }
-
-        data.forEach(kb => {
-          const option = document.createElement("option");
-          option.value = kb.id;
-          option.textContent = `${kb.id} - ${kb.name}`;
-          selectEl.appendChild(option);
-        });
-
-        if (selectedId) {
-          selectEl.value = selectedId;
-        }
-
-        statusEl.textContent = "Knowledge bases loaded.";
-
-      } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
-      }
-    }
-
-    async function uploadDocument() {
+  function updateActiveKnowledgeBase() {
+  const name = getSelectedKnowledgeBaseName();
   const kbId = getSelectedKnowledgeBaseId();
-  const fileInput = document.getElementById("fileInput");
-  const statusEl = document.getElementById("docStatus");
 
-  if (!kbId) {
-    statusEl.textContent = "Please select a knowledge base first.";
-    return;
+  document.getElementById("activeKbChip").textContent =
+    name || "No knowledge base selected";
+
+  if (kbId) {
+    loadKnowledgeBaseDocuments(kbId);
+  }
+}
+
+
+  async function loadKnowledgeBaseDocuments(kbId) {
+  const response = await fetch(`/documents?knowledge_base_id=${kbId}`, {
+    headers: {
+      "X-Workspace-ID": workspaceId
+    }
+  });
+
+  const data = await readResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to load documents.");
   }
 
-  if (!fileInput.files.length) {
-    statusEl.textContent = "Please choose a PDF or TXT file.";
-    return;
+  document.getElementById("sourceCount").textContent = data.length;
+
+  document.getElementById("sourceList").innerHTML =
+    data.map(doc => {
+      const ext = (doc.filename.split(".").pop() || "DOC").toUpperCase();
+
+      return `
+        <div class="source-item">
+          <div class="file-icon">${escapeHtml(ext)}</div>
+          <div class="file-info">
+            <div class="file-name" title="${escapeHtml(doc.filename)}">
+              ${escapeHtml(doc.filename)}
+            </div>
+            <div class="file-status">
+              Document ${doc.id}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+}
+
+
+  function addSessionDocument(fileName, chunksEmbedded) {
+    sessionDocuments.unshift({ fileName, chunksEmbedded });
+
+    document.getElementById("sourceCount").textContent = sessionDocuments.length;
+
+    document.getElementById("sourceList").innerHTML =
+      sessionDocuments.map(doc => {
+        const ext = (doc.fileName.split(".").pop() || "DOC").toUpperCase();
+
+        return `
+          <div class="source-item">
+            <div class="file-icon">${escapeHtml(ext)}</div>
+            <div class="file-info">
+              <div class="file-name" title="${escapeHtml(doc.fileName)}">${escapeHtml(doc.fileName)}</div>
+              <div class="file-status">Ready · ${doc.chunksEmbedded} chunks</div>
+            </div>
+          </div>
+        `;
+      }).join("");
   }
 
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
+  async function uploadDocument() {
+    const kbId = getSelectedKnowledgeBaseId();
+    const fileInput = document.getElementById("fileInput");
+    const uploadButton = document.getElementById("uploadButton");
+
+    if (!kbId) {
+      setFeedback("docStatus", "Select a knowledge base first.", true);
+      return;
+    }
+
+    if (!fileInput.files.length) {
+      setFeedback("docStatus", "Choose a PDF or TXT file.", true);
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+
+    uploadButton.disabled = true;
+
+    try {
+      setFeedback("docStatus", "Uploading source...");
+
+      const uploadResponse = await fetch(`/knowledge-bases/${kbId}/documents/upload`, {
+        method: "POST",
+        headers: {
+          "X-Workspace-ID": workspaceId
+        },
+        body: formData
+      });
+
+      const uploadData = await readResponse(uploadResponse);
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadData.detail || "Failed to upload document.");
+      }
+
+      currentDocumentId = uploadData.id;
+      setFeedback("docStatus", "Extracting and chunking text...");
+
+      const ingestResponse = await fetch(`/documents/${currentDocumentId}/ingest`, {
+        method: "POST",
+        headers: {
+          "X-Workspace-ID": workspaceId
+        }
+      });
+
+      const ingestData = await readResponse(ingestResponse);
+
+      if (!ingestResponse.ok) {
+        throw new Error(ingestData.detail || "Failed to ingest document.");
+      }
+
+      setFeedback("docStatus", "Creating embeddings...");
+
+      const embedResponse = await fetch(`/documents/${currentDocumentId}/embed`, {
+        method: "POST",
+        headers: {
+          "X-Workspace-ID": workspaceId
+        }
+      });
+
+      const embedData = await readResponse(embedResponse);
+
+      if (!embedResponse.ok) {
+        throw new Error(embedData.detail || "Failed to embed document.");
+      }
+
+      setFeedback("docStatus", "Source ready.");
+      addSessionDocument(file.name, embedData.chunks_embedded);
+      fileInput.value = "";
+      uploadButton.disabled = true;
+
+      document.querySelector("#uploadBox strong").textContent = "Upload PDF or TXT";
+      document.querySelector("#uploadBox span").textContent = "Click or drop a file here";
+
+    } catch (error) {
+      setFeedback("docStatus", error.message, true);
+      uploadButton.disabled = false;
+    }
+  }
+
+  function removeEmptyState() {
+    const empty = document.getElementById("emptyState");
+    if (empty) empty.remove();
+  }
+
+  function addUserMessage(text) {
+    removeEmptyState();
+
+    const wrap = document.createElement("div");
+    wrap.className = "msg user";
+
+    const label = document.createElement("div");
+    label.className = "msg-label";
+    label.textContent = "You";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+
+    document.getElementById("messages").appendChild(wrap);
+    scrollMessages();
+  }
+
+  function addThinking() {
+    const wrap = document.createElement("div");
+    wrap.className = "msg ai";
+    wrap.id = "thinkingMessage";
+    wrap.innerHTML = `
+      <div class="msg-label">RAG Assistant</div>
+      <div class="thinking"><i></i><i></i><i></i></div>
+    `;
+
+    document.getElementById("messages").appendChild(wrap);
+    scrollMessages();
+  }
+
+  function addAssistantMessage(answer, sources) {
+    const thinking = document.getElementById("thinkingMessage");
+    if (thinking) thinking.remove();
+
+    const wrap = document.createElement("div");
+    wrap.className = "msg ai";
+
+    const label = document.createElement("div");
+    label.className = "msg-label";
+    label.textContent = "RAG Assistant";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = answer || "No answer returned.";
+
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+
+    if (sources && sources.length) {
+      const sourceWrap = document.createElement("div");
+      sourceWrap.className = "source-cards";
+
+      sources.forEach((source, index) => {
+        const card = document.createElement("div");
+        card.className = "source-card";
+
+        const left = document.createElement("div");
+        left.innerHTML = `
+          <strong>${index + 1}. ${escapeHtml(source.filename || "Unknown file")}</strong>
+          <div class="source-meta">
+            Page ${source.page_number ?? "N/A"} · Chunk ${source.chunk_id ?? "N/A"} · Document ${source.document_id ?? "N/A"}
+          </div>
+        `;
+
+        const distance = document.createElement("div");
+        distance.className = "distance";
+        distance.textContent =
+          Number.isFinite(Number(source.distance))
+            ? Number(source.distance).toFixed(3)
+            : "source";
+
+        card.appendChild(left);
+        card.appendChild(distance);
+        sourceWrap.appendChild(card);
+      });
+
+      wrap.appendChild(sourceWrap);
+    }
+
+    document.getElementById("messages").appendChild(wrap);
+    scrollMessages();
+  }
+
+  function addAssistantError(message) {
+  const thinking = document.getElementById("thinkingMessage");
+  if (thinking) thinking.remove();
+
+  const wrap = document.createElement("div");
+  wrap.className = "msg ai";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.style.color = "#8f1d16";
+  bubble.style.background = "#fff5f4";
+  bubble.style.borderColor = "#f2cbc7";
+
+  bubble.textContent =
+    typeof message === "object" && message !== null
+      ? message.message || "Please choose a document."
+      : message;
+
+  wrap.appendChild(bubble);
+
+  if (
+    typeof message === "object" &&
+    message !== null &&
+    Array.isArray(message.documents)
+  ) {
+    const choices = document.createElement("div");
+    choices.className = "document-choices";
+
+    message.documents.forEach(doc => {
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "suggestion";
+      button.textContent = doc.filename || doc.name || doc;
+
+      button.addEventListener("click", () => {
+        askQuestionForDocument(
+          message.originalQuery,
+          doc.id
+        );
+      });
+
+      choices.appendChild(button);
+    });
+
+    wrap.appendChild(choices);
+  }
+
+  document.getElementById("messages").appendChild(wrap);
+  scrollMessages();
+}
+
+  async function askQuestion() {
+    const kbId = getSelectedKnowledgeBaseId();
+    const questionInput = document.getElementById("question");
+    const question = questionInput.value.trim();
+    const askButton = document.getElementById("askButton");
+
+    if (!kbId) {
+      setFeedback("searchStatus", "Select a knowledge base first.", true);
+      return;
+    }
+
+    if (!question) {
+      setFeedback("searchStatus", "Enter a question.", true);
+      return;
+    }
+
+    addUserMessage(question);
+    addThinking();
+
+    questionInput.value = "";
+    questionInput.style.height = "auto";
+    askButton.disabled = true;
+    setFeedback("searchStatus", "Searching sources and generating answer...");
+
+    try {
+      const response = await fetch("/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Workspace-ID": workspaceId
+        },
+        body: JSON.stringify({
+          query: question,
+          knowledge_base_id: kbId
+        })
+      });
+
+      const data = await readResponse(response);
+
+    if (!response.ok) {
+      if (
+        data.detail &&
+        typeof data.detail === "object" &&
+        Array.isArray(data.detail.documents)
+      ) {
+        data.detail.originalQuery = question;
+        addAssistantError(data.detail);
+        setFeedback(
+          "searchStatus",
+          "Please choose a document.",
+          true
+        );
+        return;
+      }
+
+      throw new Error(
+        data.detail || "Search failed."
+      );
+    }
+
+      addAssistantMessage(data.answer, data.sources || []);
+      setFeedback("searchStatus", "Answer generated from retrieved sources.");
+
+    } catch (error) {
+      addAssistantError(error.message);
+      setFeedback("searchStatus", error.message, true);
+
+    } finally {
+      askButton.disabled = false;
+      questionInput.focus();
+    }
+  }
+
+
+async function askQuestionForDocument(question, documentId) {
+  const kbId = getSelectedKnowledgeBaseId();
+
+  addThinking();
+  setFeedback(
+    "searchStatus",
+    "Searching the selected document and generating an answer..."
+  );
 
   try {
-    statusEl.textContent = "Uploading document...";
-
-    const uploadResponse = await fetch(`/knowledge-bases/${kbId}/documents/upload`, {
+    const response = await fetch("/search", {
       method: "POST",
-      body: formData
+      headers: {
+        "Content-Type": "application/json",
+        "X-Workspace-ID": workspaceId
+      },
+      body: JSON.stringify({
+        query: question,
+        knowledge_base_id: kbId,
+        document_id: documentId
+      })
     });
 
-    const uploadData = await readResponse(uploadResponse);
+    const data = await readResponse(response);
 
-    if (!uploadResponse.ok) {
-      throw new Error(uploadData.detail || "Failed to upload document.");
+    if (!response.ok) {
+      throw new Error(data.detail || "Search failed.");
     }
 
-    currentDocumentId = uploadData.id;
-    document.getElementById("documentIdDisplay").textContent = currentDocumentId;
+    addAssistantMessage(
+      data.answer,
+      data.sources || []
+    );
 
-    statusEl.textContent = `Uploaded document ID ${currentDocumentId}. Ingesting document...`;
-
-    const ingestResponse = await fetch(`/documents/${currentDocumentId}/ingest`, {
-      method: "POST"
-    });
-
-    const ingestData = await readResponse(ingestResponse);
-
-    if (!ingestResponse.ok) {
-      throw new Error(ingestData.detail || "Failed to ingest document.");
-    }
-
-    statusEl.textContent =
-      `Ingested document. Chunks created: ${ingestData.chunks_created}. Embedding chunks...`;
-
-    const embedResponse = await fetch(`/documents/${currentDocumentId}/embed`, {
-      method: "POST"
-    });
-
-    const embedData = await readResponse(embedResponse);
-
-    if (!embedResponse.ok) {
-      throw new Error(embedData.detail || "Failed to embed document.");
-    }
-
-    statusEl.textContent =
-      `Document processed successfully. Embedded ${embedData.chunks_embedded} chunks. Now you can ask questions.`;
+    setFeedback(
+      "searchStatus",
+      "Answer generated from the selected document."
+    );
 
   } catch (error) {
-    statusEl.textContent = `Error: ${error.message}`;
+    addAssistantError(error.message);
+    setFeedback("searchStatus", error.message, true);
   }
 }
 
-    async function ingestDocument() {
-      const statusEl = document.getElementById("docStatus");
 
-      if (!currentDocumentId) {
-        statusEl.textContent = "Upload a document first.";
-        return;
-      }
 
-      statusEl.textContent = "Ingesting document and creating chunks...";
+  function useSuggestion(text) {
+    const input = document.getElementById("question");
+    input.value = text;
+    input.focus();
+  }
 
-      try {
-        const response = await fetch(`/documents/${currentDocumentId}/ingest`, {
-          method: "POST"
-        });
+  function scrollMessages() {
+    const messages = document.getElementById("messages");
+    messages.scrollTop = messages.scrollHeight;
+  }
 
-        const data = await readResponse(response);
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to ingest document.");
-        }
+  const fileInput = document.getElementById("fileInput");
+  const uploadBox = document.getElementById("uploadBox");
+  const uploadButton = document.getElementById("uploadButton");
+  const questionInput = document.getElementById("question");
 
-        statusEl.textContent = `Ingested document. Chunks created: ${data.chunks_created}`;
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
 
-      } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
-      }
+    if (!file) {
+      uploadButton.disabled = true;
+      return;
     }
 
-    async function embedDocument() {
-      const statusEl = document.getElementById("docStatus");
+    uploadButton.disabled = false;
+    document.querySelector("#uploadBox strong").textContent = file.name;
+    document.querySelector("#uploadBox span").textContent = "Ready to add";
+    setFeedback("docStatus", "");
+  });
 
-      if (!currentDocumentId) {
-        statusEl.textContent = "Upload and ingest a document first.";
-        return;
-      }
-
-      statusEl.textContent = "Embedding chunks. This may take some time...";
-
-      try {
-        const response = await fetch(`/documents/${currentDocumentId}/embed`, {
-          method: "POST"
-        });
-
-        const data = await readResponse(response);
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to embed document.");
-        }
-
-        statusEl.textContent =
-          `Embedded ${data.chunks_embedded} chunks using ${data.embedding_model}.`;
-
-      } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
-      }
-    }
-
-    async function askQuestion() {
-      const kbId = getSelectedKnowledgeBaseId();
-      const question = document.getElementById("question").value.trim();
-
-      const statusEl = document.getElementById("searchStatus");
-      const answerEl = document.getElementById("answer");
-      const sourcesEl = document.getElementById("sources");
-
-      if (!kbId) {
-        statusEl.textContent = "Please select a knowledge base first.";
-        return;
-      }
-
-      if (!question) {
-        statusEl.textContent = "Please enter a question.";
-        return;
-      }
-
-      statusEl.textContent = "Searching and generating answer...";
-      answerEl.textContent = "";
-      sourcesEl.innerHTML = "";
-
-      try {
-        const response = await fetch("/search", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            query: question,
-            knowledge_base_id: kbId
-          })
-        });
-
-        const data = await readResponse(response);
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Search failed.");
-        }
-
-        statusEl.textContent = "Done.";
-        answerEl.textContent = data.answer || "No answer returned.";
-
-        if (!data.sources || data.sources.length === 0) {
-          sourcesEl.textContent = "No sources found.";
-          return;
-        }
-
-        sourcesEl.innerHTML = data.sources.map((source, index) => `
-          <div class="source">
-            <strong>Source ${index + 1}</strong><br>
-            File: ${source.filename}<br>
-            Page: ${source.page_number ?? "N/A"}<br>
-            Chunk ID: ${source.chunk_id}<br>
-            Document ID: ${source.document_id}<br>
-            Distance: ${Number(source.distance).toFixed(4)}
-          </div>
-        `).join("");
-
-      } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
-        answerEl.textContent = "";
-        sourcesEl.textContent = "";
-      }
-    }
-
-    window.addEventListener("load", () => {
-      loadKnowledgeBases();
+  ["dragenter", "dragover"].forEach(name => {
+    uploadBox.addEventListener(name, event => {
+      event.preventDefault();
+      uploadBox.classList.add("dragover");
     });
-  </script>
+  });
+
+  ["dragleave", "drop"].forEach(name => {
+    uploadBox.addEventListener(name, event => {
+      event.preventDefault();
+      uploadBox.classList.remove("dragover");
+    });
+  });
+
+  uploadBox.addEventListener("drop", event => {
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+
+    const ext = file.name.toLowerCase().split(".").pop();
+    if (!["pdf", "txt"].includes(ext)) {
+      setFeedback("docStatus", "Only PDF and TXT files are supported.", true);
+      return;
+    }
+
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event("change"));
+  });
+
+  document.getElementById("kbSelect").addEventListener("change", updateActiveKnowledgeBase);
+
+  questionInput.addEventListener("input", () => {
+    questionInput.style.height = "auto";
+    questionInput.style.height = Math.min(questionInput.scrollHeight, 140) + "px";
+  });
+
+  questionInput.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      askQuestion();
+    }
+  });
+
+  document.getElementById("kbModal").addEventListener("click", event => {
+    if (event.target.id === "kbModal") closeKbModal();
+  });
+
+  window.addEventListener("load", () => {
+    loadKnowledgeBases();
+    questionInput.focus();
+  });
+</script>
 </body>
 </html>

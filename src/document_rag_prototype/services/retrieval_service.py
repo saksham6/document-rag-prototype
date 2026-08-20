@@ -8,11 +8,11 @@ from document_rag_prototype.api.schemas.models import SearchResult
 async def retrieve_chunks(
     query: str,
     db: AsyncSession,
+    workspace_id: str,
     knowledge_base_id: int | None = None,
     document_id: int | None = None,
     top_k: int = 5,
 ) -> list[SearchResult]:
-    query = query.strip()
 
     if not query:
         raise ValueError("Search query cannot be empty.")
@@ -23,23 +23,26 @@ async def retrieve_chunks(
     query_embedding_str = "[" + ",".join(str(value) for value in query_embedding) + "]"
 
     sql = """
-        SELECT
-            chunks.id AS chunk_id,
-            chunks.document_id AS document_id,
-            documents.filename AS filename,
-            chunks.chunk_index AS chunk_index,
-            chunks.page_number AS page_number,
-            chunks.content AS content,
-            chunks.embedding <=> CAST(:query_embedding AS vector) AS distance
-        FROM chunks
-        JOIN documents ON documents.id = chunks.document_id
-        WHERE chunks.embedding IS NOT NULL
-    """
+    SELECT
+        chunks.id AS chunk_id,
+        chunks.document_id AS document_id,
+        documents.filename AS filename,
+        chunks.chunk_index AS chunk_index,
+        chunks.page_number AS page_number,
+        chunks.content AS content,
+        chunks.embedding <=> CAST(:query_embedding AS vector) AS distance
+    FROM chunks
+    JOIN documents ON documents.id = chunks.document_id
+    JOIN knowledge_bases ON knowledge_bases.id = documents.knowledge_base_id
+    WHERE chunks.embedding IS NOT NULL
+      AND knowledge_bases.workspace_id = CAST(:workspace_id AS uuid)
+"""
 
     params = {
-        "query_embedding": query_embedding_str,
-        "top_k": top_k,
-    }
+    "query_embedding": query_embedding_str,
+    "workspace_id": workspace_id,
+    "top_k": top_k,
+}
 
     if knowledge_base_id is not None:
         sql += " AND documents.knowledge_base_id = :knowledge_base_id"

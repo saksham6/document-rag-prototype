@@ -9,3 +9,8 @@ notebooks
 tests
 data/processed
 *.ipynb
+.env
+.env.*
+*.zip
+tracked_project_structure.txt
+uploads/

@@ -1,7 +1,8 @@
 from pathlib import Path
+from unittest import result
+from uuid import uuid4
 
-
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from document_rag_prototype.services.storage_service import storage_service
@@ -27,9 +28,17 @@ router = APIRouter(tags=["Documents"])
 async def upload_document(
     knowledge_base_id: int,
     file: UploadFile = File(...),
+    x_workspace_id: str = Header(..., alias="X-Workspace-ID"),
     db: AsyncSession = Depends(get_db_session),
 ):
-    knowledge_base = await db.get(KnowledgeBase, knowledge_base_id)
+    result = await db.execute(
+    select(KnowledgeBase).where(
+        KnowledgeBase.id == knowledge_base_id,
+        KnowledgeBase.workspace_id == x_workspace_id,
+    )
+)
+
+    knowledge_base = result.scalar_one_or_none()
 
     if knowledge_base is None:
         raise HTTPException(
@@ -52,16 +61,23 @@ async def upload_document(
             detail="Only PDF and TXT files are supported for now.",
         )
 
-    saved_path = await storage_service.save_file (
+    storage_key = (
+    f"workspaces/{x_workspace_id}/"
+    f"knowledge-bases/{knowledge_base_id}/"
+    f"{uuid4()}/{file.filename}"
+    )
+
+    saved_path = await storage_service.save_file(
     file=file,
-    filename=file.filename,
-        )
+    filename=storage_key,
+    )
 
     document = Document(
-        knowledge_base_id=knowledge_base_id,
-        filename=file.filename,
-        source_type="file",
-        status="uploaded",
+    knowledge_base_id=knowledge_base_id,
+    filename=file.filename,
+    storage_key=storage_key,
+    source_type="file",
+    status="uploaded",
     )
 
     db.add(document)
@@ -103,11 +119,20 @@ async def create_document(
 
 @router.get("/documents", response_model=list[DocumentRead])
 async def list_documents(
+    knowledge_base_id: int,
+    x_workspace_id: str = Header(..., alias="X-Workspace-ID"),
     db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(
-        select(Document).order_by(Document.id)
+        select(Document)
+        .join(KnowledgeBase)
+        .where(
+            KnowledgeBase.workspace_id == x_workspace_id,
+            Document.knowledge_base_id == knowledge_base_id,
+        )
+        .order_by(Document.id)
     )
+
     return result.scalars().all()
 
 @router.post("/chunks", response_model=ChunkRead)

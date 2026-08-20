@@ -9,9 +9,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from document_rag_prototype.db.models import Base
+from dotenv import load_dotenv
 
 
 config = context.config
+
+load_dotenv()
 
 database_url = os.getenv("DATABASE_URL")
 
